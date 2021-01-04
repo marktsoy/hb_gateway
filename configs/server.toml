@@ -1,0 +1,3 @@
+bind_addr="localhost:3333"
+rabbit_addr="amqp://localhost:5672"
+rabbit_message_queue="messages"
