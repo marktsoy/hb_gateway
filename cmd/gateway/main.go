@@ -30,7 +30,7 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("Rabbit Addr: %v \n", config.RabbitAddr)
-	fmt.Printf("Rabbit Message Queue: %v \n", config.MessageQueueName)
+	fmt.Printf("Rabbit Message Queue: %v \n", config.MessageExchangeName)
 
 	server := application.New(config)
 

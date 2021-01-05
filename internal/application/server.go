@@ -16,7 +16,6 @@ type Server struct {
 	router           *http.ServeMux
 	rabbitConnection *amqp.Connection
 	channel          *amqp.Channel
-	queue            amqp.Queue
 }
 
 func New(c *Config) *Server {
@@ -46,12 +45,16 @@ func (s *Server) Init() {
 	}
 
 	s.channel = ch
-	//name string, durable, autoDelete, exclusive, noWait bool
-	queue, err := s.channel.QueueDeclare(s.config.MessageQueueName, false, false, false, false, amqp.Table{"x-max-priority": 5})
-	if err != nil {
-		panic(err.Error())
-	}
-	s.queue = queue
+
+	err = ch.ExchangeDeclare(
+		s.config.MessageExchangeName, // name
+		"topic",                      // type
+		true,                         // durable
+		false,                        // auto-deleted
+		false,                        // internal
+		false,                        // no-wait
+		nil,                          // arguments
+	)
 }
 
 func (s *Server) createBundle() func(w http.ResponseWriter, r *http.Request) {
@@ -95,14 +98,13 @@ func (s *Server) createBundle() func(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) pub(data []byte, p uint8) error {
 	err := s.channel.Publish(
-		"",           // exchange
-		s.queue.Name, // routing key
-		false,        // mandatory
-		false,        // immediate
+		s.config.MessageExchangeName, // exchange
+		routingKeyFromPriority(p),    // routing key
+		false,                        // mandatory
+		false,                        // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        data,
-			Priority:    p,
 		})
 	return err
 }
@@ -110,4 +112,15 @@ func (s *Server) pub(data []byte, p uint8) error {
 func (s *Server) Run() {
 	fmt.Printf("Server starting at %v \n", s.config.BindAddr)
 	http.ListenAndServe(s.config.BindAddr, s)
+}
+
+func routingKeyFromPriority(p uint8) string {
+	switch {
+	default:
+		return "low"
+	case p == 1:
+		return "medium"
+	case p >= 2:
+		return "high"
+	}
 }
